@@ -24,27 +24,32 @@ def get_contributors(repo_owner, repo_name, github_token):
     return contributors
 
 
-def is_org_member(org, username, github_token):
-    """Check if a user is a member of an organization."""
+def get_org_members(org, github_token, org_members_cache):
+    """Fetch members of an organization and store them in the cache."""
+    if org in org_members_cache:
+        return org_members_cache[org]
     url = f"https://api.github.com/orgs/{org}/members?role=all"
     headers = {
         "Authorization": f"token {github_token}",
         "Content-Type": "application/json",
         "X-GitHub-Media-Type": "github.v3",
     }
-    response = requests.get(url, headers=headers)
-    members = response.json()
-    while "next" in response.links:
-        url = response.links["next"]["url"]
+    members = []
+    while True:
         response = requests.get(url, headers=headers)
         members.extend(response.json())
-    return any(member["login"] == username for member in members)
+        if "next" in response.links:
+            url = response.links["next"]["url"]
+        else:
+            break
+    org_members_cache[org] = [member["login"] for member in members]
+    return org_members_cache[org]
 
 
-def is_external_contributor(username, filter_orgs, github_token):
+def is_external_contributor(username, filter_orgs, github_token, org_members_cache):
     """Check if a contributor is external (not part of filtered organizations)."""
     for org in filter_orgs:
-        if is_org_member(org, username, github_token):
+        if username in get_org_members(org, github_token, org_members_cache):
             return False
     return True
 
@@ -70,10 +75,13 @@ def get_pull_requests(repo_owner, repo_name, state, github_token):
 def get_external_contributors(repo_owner, repo_name, filter_orgs, github_token):
     """Fetch external contributors and their monthly PR counts."""
     contributors = get_contributors(repo_owner, repo_name, github_token)
+    org_members_cache = {}
     external_contributors = {}
     for contributor in contributors:
         username = contributor["login"]
-        if is_external_contributor(username, filter_orgs, github_token):
+        if is_external_contributor(
+            username, filter_orgs, github_token, org_members_cache
+        ):
             external_contributors[username] = {"prs": 0, "months": {}}
     prs = get_pull_requests(repo_owner, repo_name, "all", github_token)
     for pr in prs:
