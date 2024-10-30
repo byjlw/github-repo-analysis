@@ -6,19 +6,23 @@ from datetime import datetime
 import requests
 
 
-def get_contributors(repo_owner, repo_name, github_token):
+def get_contributors(repo_owner, repo_name, github_token, since=None):
     """Fetch contributors to the repository."""
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contributors"
     headers = {
         "Authorization": f"token {github_token}",
         "Content-Type": "application/json",
     }
+    params = {}
+    if since:
+        params["since"] = since.isoformat()
     contributors = []
     while True:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, params=params)
         contributors.extend(response.json())
         if "next" in response.links:
             url = response.links["next"]["url"]
+            params = {}  # reset params for next page
         else:
             break
     return contributors
@@ -54,38 +58,48 @@ def is_external_contributor(username, filter_orgs, github_token, org_members_cac
     return True
 
 
-def get_pull_requests(repo_owner, repo_name, state, github_token):
+def get_pull_requests(repo_owner, repo_name, state, github_token, since=None):
     """Fetch pull requests for the repository."""
     url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/pulls?state={state}"
     headers = {
         "Authorization": f"token {github_token}",
         "Content-Type": "application/json",
     }
+    params = {}
+    if since:
+        params["since"] = since.isoformat()
     prs = []
     while True:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, params=params)
         prs.extend(response.json())
         if "next" in response.links:
             url = response.links["next"]["url"]
+            params = {}  # reset params for next page
         else:
             break
     return prs
 
 
-def get_external_contributors(repo_owner, repo_name, filter_orgs, github_token):
+def get_external_contributors(
+    repo_owner, repo_name, filter_orgs, exclude_contributors, github_token, since=None
+):
     """Fetch external contributors and their monthly PR counts."""
-    contributors = get_contributors(repo_owner, repo_name, github_token)
+    contributors = get_contributors(repo_owner, repo_name, github_token, since=since)
     org_members_cache = {}
     external_contributors = {}
     for contributor in contributors:
         username = contributor["login"]
+        if username in exclude_contributors:
+            continue
         if is_external_contributor(
             username, filter_orgs, github_token, org_members_cache
         ):
             external_contributors[username] = {"prs": 0, "months": {}}
-    prs = get_pull_requests(repo_owner, repo_name, "all", github_token)
+    prs = get_pull_requests(repo_owner, repo_name, "all", github_token, since=since)
     for pr in prs:
         username = pr["user"]["login"]
+        if username in exclude_contributors:
+            continue
         if username in external_contributors:
             created_at = datetime.strptime(pr["created_at"], "%Y-%m-%dT%H:%M:%SZ")
             month_key = created_at.strftime("%Y-%m")
@@ -125,6 +139,10 @@ if __name__ == "__main__":
         "--filter-organizations", nargs="+", help="Organizations to filter out"
     )
     parser.add_argument(
+        "--exclude-contributors", nargs="+", help="Contributors to exclude"
+    )
+    parser.add_argument("--since", help="Date to start from (YYYY-MM-DD)")
+    parser.add_argument(
         "--output-tsv", action="store_true", help="Output in TSV format"
     )
     args = parser.parse_args()
@@ -132,13 +150,26 @@ if __name__ == "__main__":
     repo_name = args.repo_name or os.environ.get("REPO_NAME")
     github_token = args.github_token or os.environ.get("GITHUB_TOKEN")
     filter_orgs = args.filter_organizations or os.environ.get("FILTER_ORGS")
+    exclude_contributors = args.exclude_contributors or os.environ.get(
+        "EXCLUDE_CONTRIBUTORS"
+    )
+    since_date = args.since
     if not repo_owner or not repo_name or not github_token:
         print("Error: Repository owner, name, and GitHub token are required.")
         exit(1)
     if filter_orgs and isinstance(filter_orgs, str):
         filter_orgs = [filter_orgs]
+    if exclude_contributors and isinstance(exclude_contributors, str):
+        exclude_contributors = [exclude_contributors]
+    if since_date:
+        since_date = datetime.strptime(since_date, "%Y-%m-%d")
     external_contributors = get_external_contributors(
-        repo_owner, repo_name, filter_orgs or [], github_token
+        repo_owner,
+        repo_name,
+        filter_orgs or [],
+        exclude_contributors or [],
+        github_token,
+        since=since_date,
     )
     if args.output_tsv:
         tsv_data = convert_to_tsv(external_contributors)
