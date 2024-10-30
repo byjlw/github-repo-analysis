@@ -3,8 +3,14 @@ This Repo contains scripts and commands to better understand the development and
 
 - Currently it only looks at external contributions
 
-
-Here is an updated README.md file:
+### Install
+```
+git clone https://github.com/byjlw/github-repo-analysis.git
+cd github-repo-analysis
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
 **External Contributors**
 ==========================
@@ -49,4 +55,41 @@ This will fetch external contributors to the `pytorch/torchchat` repository, exc
 **Output**
 ------
 
-The script outputs the external contributors and their monthly PR counts in JSON format by default. You can use the `--output-tsv` flag to output in TSV format instead.
+The script outputs the external contributors and their monthly PR counts in JSON format by default.
+
+```
+{
+  "user1": {
+    "prs": 5,
+    "months": {
+      "2022-01": 2,
+      "2022-02": 3
+    }
+  },
+  "user2": {
+    "prs": 3,
+    "months": {
+      "2022-01": 1,
+      "2022-03": 2
+    }
+  },
+  "user3": {
+    "prs": 2,
+    "months": {
+      "2022-02": 1,
+      "2022-04": 1
+    }
+  }
+}
+```
+
+You can use the `--output-tsv` flag to output in TSV format instead.
+```
+Contributor  Total PRs  Month  PRs
+user1        5         2022-01  2
+user1        5         2022-02  3
+user2        3         2022-01  1
+user2        3         2022-03  2
+user3        2         2022-02  1
+user3        2         2022-04  1
+```
