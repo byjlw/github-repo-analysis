@@ -2,9 +2,8 @@ import argparse
 import json
 import os
 from datetime import datetime
-
 import requests
-
+import git
 
 def get_contributors(repo_owner, repo_name, github_token, since=None):
     """Fetch contributors to the repository."""
@@ -79,12 +78,42 @@ def get_pull_requests(repo_owner, repo_name, state, github_token, since=None):
             break
     return prs
 
+def get_contributors_from_local(repo_path):
+    """Fetch contributors from a local Git repository."""
+    repo = git.Repo(repo_path)
+    contributors = {}
+    for commit in repo.iter_commits():
+        author = commit.author.email
+        if author not in contributors:
+            contributors[author] = {"login": commit.author.name, "contributions": 0}
+        contributors[author]["contributions"] += 1
+    return list(contributors.values())
+
+def get_pull_requests_from_local(repo_path, since=None):
+    """Fetch pull requests from a local Git repository."""
+    repo = git.Repo(repo_path)
+    prs = []
+    for pr in repo.iter_commits():
+        if since and pr.committed_datetime < since:
+            continue
+        prs.append({
+            "user": {"login": pr.author.name},
+            "created_at": pr.committed_datetime.strftime("%Y-%m-%dT%H:%M:%SZ")
+        })
+    return prs
 
 def get_external_contributors(
-    repo_owner, repo_name, filter_orgs, exclude_contributors, github_token, since=None
+    repo_owner, repo_name, filter_orgs, exclude_contributors, github_token, since=None, local_checkout=None
 ):
     """Fetch external contributors and their monthly PR counts."""
-    contributors = get_contributors(repo_owner, repo_name, github_token, since=since)
+    if local_checkout:
+        contributors = get_contributors_from_local(local_checkout)
+        prs = get_pull_requests_from_local(local_checkout, since=since)
+    else:
+        contributors = get_contributors(repo_owner, repo_name, github_token, since=since)
+        prs = get_pull_requests(repo_owner, repo_name, "all", github_token, since=since)
+
+
     org_members_cache = {}
     external_contributors = {}
     for contributor in contributors:
@@ -95,7 +124,6 @@ def get_external_contributors(
             username, filter_orgs, github_token, org_members_cache
         ):
             external_contributors[username] = {"prs": 0, "months": {}}
-    prs = get_pull_requests(repo_owner, repo_name, "all", github_token, since=since)
     for pr in prs:
         username = pr["user"]["login"]
         if username in exclude_contributors:
@@ -131,21 +159,18 @@ def convert_to_tsv(external_contributors):
 
 
 if __name__ == "__main__":
+    print("Hello starting up")
     parser = argparse.ArgumentParser(description="Get external contributors")
     parser.add_argument("--repo-owner", help="Repository owner")
     parser.add_argument("--repo-name", help="Repository name")
     parser.add_argument("--github-token", help="GitHub token")
-    parser.add_argument(
-        "--filter-organizations", nargs="+", help="Organizations to filter out"
-    )
-    parser.add_argument(
-        "--exclude-contributors", nargs="+", help="Contributors to exclude"
-    )
+    parser.add_argument("--filter-organizations", nargs="+", help="Organizations to filter out")
+    parser.add_argument("--exclude-contributors", nargs="+", help="Contributors to exclude")
     parser.add_argument("--since", help="Date to start from (YYYY-MM-DD)")
-    parser.add_argument(
-        "--output-tsv", action="store_true", help="Output in TSV format"
-    )
+    parser.add_argument("--output-tsv", action="store_true", help="Output in TSV format")
+    parser.add_argument("--local-checkout", help="Path to local Git repository")  # New argument
     args = parser.parse_args()
+
     repo_owner = args.repo_owner or os.environ.get("REPO_OWNER")
     repo_name = args.repo_name or os.environ.get("REPO_NAME")
     github_token = args.github_token or os.environ.get("GITHUB_TOKEN")
@@ -164,12 +189,7 @@ if __name__ == "__main__":
     if since_date:
         since_date = datetime.strptime(since_date, "%Y-%m-%d")
     external_contributors = get_external_contributors(
-        repo_owner,
-        repo_name,
-        filter_orgs or [],
-        exclude_contributors or [],
-        github_token,
-        since=since_date,
+        repo_owner, repo_name, filter_orgs, exclude_contributors, github_token, since=since_date, local_checkout=args.local_checkout
     )
     if args.output_tsv:
         tsv_data = convert_to_tsv(external_contributors)
