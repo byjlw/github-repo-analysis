@@ -13,6 +13,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Constants
 GITHUB_API = "https://api.github.com/repos/"
 CACHE_DIR = ".cache"
+OUTPUT_DIR = "output"
 
 def save_cache(data, path):
     with open(path, 'w') as f:
@@ -46,8 +47,8 @@ def fetch_issues(repo, token, limit=1000):
         if not response_data:  # No more issues to fetch
             break
             
-        # Filter out pull requests
-        actual_issues = [issue for issue in response_data if 'pull_request' not in issue]
+        # Filter out pull requests - only keep items that don't have a pull_request object
+        actual_issues = [issue for issue in response_data if not issue.get('pull_request')]
         issues.extend(actual_issues[:limit - len(issues)])
         
         if len(response_data) < 100:  # Last page
@@ -141,9 +142,14 @@ def plot_issues(df_issues):
     lines2, labels2 = ax2.get_legend_handles_labels()
     ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
     
-    plt.savefig('issue_trends.png')
+    # Ensure output directory exists
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+    
+    output_path = os.path.join(OUTPUT_DIR, 'issue_trends.png')
+    plt.savefig(output_path)
     plt.show()
-    logging.info("Chart has been saved as issue_trends.png.")
+    logging.info(f"Chart has been saved as {output_path}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
