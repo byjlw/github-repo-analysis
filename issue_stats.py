@@ -122,16 +122,16 @@ def plot_issues(df_issues):
     fig, ax1 = plt.subplots(figsize=(12, 6))
     
     # Plot open issues on primary y-axis
-    ax1.plot(date_range, open_issues, label='Open Issues', color='blue', marker='o')
+    ax1.plot(date_range, open_issues, label='Open Issues', color='red', marker='o')
     ax1.set_xlabel('Date')
-    ax1.set_ylabel('Number of Open Issues', color='blue')
-    ax1.tick_params(axis='y', labelcolor='blue')
+    ax1.set_ylabel('Number of Open Issues', color='red')
+    ax1.tick_params(axis='y', labelcolor='red')
     
     # Create secondary y-axis and plot closed issues
     ax2 = ax1.twinx()
-    ax2.plot(date_range, closed_per_day, label='Closed Issues per Day', color='red', marker='x')
-    ax2.set_ylabel('Number of Issues Closed per Day', color='red')
-    ax2.tick_params(axis='y', labelcolor='red')
+    ax2.plot(date_range, closed_per_day, label='Closed Issues per Day', color='blue', marker='x')
+    ax2.set_ylabel('Number of Issues Closed per Day', color='blue')
+    ax2.tick_params(axis='y', labelcolor='blue')
     
     # Add title and grid
     plt.title(f"Issue Trends (Excluding Pull Requests)\nCurrent Open Issues: {current_open}")
