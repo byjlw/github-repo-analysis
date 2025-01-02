@@ -1,10 +1,8 @@
 # github-repo-analysis
 This Repo contains scripts and commands to better understand the development and health of a repository.
 
-- Currently it only looks at external contributions
-
-### Install
-```
+## Install
+```bash
 git clone https://github.com/byjlw/github-repo-analysis.git
 cd github-repo-analysis
 python3 -m venv .venv
@@ -12,13 +10,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**External Contributors**
-==========================
+## Scripts
+
+### External Contributors
 
 This script fetches external contributors to a GitHub repository and their monthly PR counts.
 
-**Usage**
---------
+#### Usage
 
 ```bash
 python external_contributors.py --repo-owner <repo_owner> --repo-name <repo_name> --github-token <github_token> [--filter-organizations <filter_orgs>] [--exclude-contributors <exclude_contributors>] [--since <since_date>] [--output-tsv]
@@ -32,8 +30,7 @@ python external_contributors.py --repo-owner <repo_owner> --repo-name <repo_name
 *   `since_date`: The date to start from (YYYY-MM-DD) (optional).
 *   `--output-tsv`: Output in TSV format instead of JSON (optional).
 
-**Environment Variables**
--------------------------
+#### Environment Variables
 
 You can also set the following environment variables:
 
@@ -43,21 +40,19 @@ You can also set the following environment variables:
 *   `FILTER_ORGS`
 *   `EXCLUDE_CONTRIBUTORS`
 
-**Example**
---------
+#### Example
 
 ```bash
-python external_contributors.py --repo-owner pytorch --repo-name torchchat --github-token ghp_g9lT43p6uQxXcK4yN8e7zRfOaM1wSbI --filter-organizations pytorch pytorch-labs --exclude-contributors user1 user2 --since 2022-01-01
+python external_contributors.py --repo-owner pytorch --repo-name torchchat --github-token ghp_g9lT43p6uQxXcK4yN8e7zRfOaM1wSbv --filter-organizations pytorch pytorch-labs --exclude-contributors user1 user2 --since 2022-01-01
 ```
 
 This will fetch external contributors to the `pytorch/torchchat` repository, excluding members of the `pytorch` and `pytorch-labs` organizations, and excluding the contributors `user1` and `user2`. It will only include contributors who have made contributions since January 1, 2022.
 
-**Output**
-------
+#### Output
 
-The script outputs the external contributors and their monthly PR counts in JSON format by default.
+The script outputs the external contributors and their monthly PR counts in JSON format by default:
 
-```
+```json
 {
   "user1": {
     "prs": 5,
@@ -72,24 +67,94 @@ The script outputs the external contributors and their monthly PR counts in JSON
       "2022-01": 1,
       "2022-03": 2
     }
-  },
-  "user3": {
-    "prs": 2,
-    "months": {
-      "2022-02": 1,
-      "2022-04": 1
-    }
   }
 }
 ```
 
-You can use the `--output-tsv` flag to output in TSV format instead.
+You can use the `--output-tsv` flag to output in TSV format instead:
 ```
 Contributor  Total PRs  Month  PRs
 user1        5         2022-01  2
 user1        5         2022-02  3
 user2        3         2022-01  1
 user2        3         2022-03  2
-user3        2         2022-02  1
-user3        2         2022-04  1
 ```
+
+### Issue Statistics
+
+This script analyzes and visualizes issue trends for a GitHub repository, showing the number of open issues over time and issues closed per day.
+
+#### Usage
+
+```bash
+python issue_stats.py <github-repo> <personal-access-token> [fetch-limit] [--use-cache-only]
+```
+
+*   `github-repo`: The repository in format 'owner/name' (e.g., 'pytorch/pytorch')
+*   `personal-access-token`: A valid GitHub token with read access to the repository
+*   `fetch-limit`: Maximum number of issues to fetch (optional, default: 1000)
+*   `--use-cache-only`: Use only cached data, don't make API calls (optional)
+
+#### Example
+
+```bash
+python issue_stats.py pytorch/pytorch ghp_g9lT43p6uQxXcK4yN8e7zRfOaM1wSbv 2000
+```
+
+This will analyze up to 2000 issues from the pytorch/pytorch repository.
+
+#### Output
+
+The script generates a chart showing:
+- Number of open issues over time (red line)
+- Number of issues closed per day (blue line)
+
+The chart is saved as 'issue_trends.png' in the output directory.
+
+## Core Components
+
+### GitHub API Client
+
+The repository includes a centralized GitHub API client (`github_api.py`) that handles all interactions with the GitHub API. Key features include:
+
+- Fetching issues, pull requests, and contributors
+- Detailed data retrieval including comments and events
+- Rate limit handling and error management
+- Built-in caching system
+
+### Caching System
+
+The caching system (`github_cache.py`) provides efficient data storage and retrieval:
+
+#### Features
+
+- Automatic caching of API responses
+- Configurable staleness checks (1 hour for basic data, 15 minutes for state coverage)
+- Cache-only mode for offline operation
+- Comprehensive metadata including:
+  - Date ranges
+  - Completeness tracking
+  - State coverage
+  - Update history
+
+#### Cache Modes
+
+The caching system supports three modes:
+
+1. **Normal Mode** (`use_cache=True`):
+   - Uses cached data if fresh
+   - Fetches new data if cache is stale
+   - Merges new data with existing cache
+
+2. **No Cache** (`use_cache=False`):
+   - Always fetches fresh data
+   - No data is cached
+
+3. **Cache Only** (`use_cache_only=True`):
+   - Uses cached data regardless of staleness
+   - Never makes API calls
+   - Returns empty results if no cache exists
+
+#### Cache Location
+
+Cache files are stored in the `.cache` directory, with filenames based on the endpoint and parameters to ensure uniqueness.
