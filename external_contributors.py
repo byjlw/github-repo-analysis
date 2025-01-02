@@ -3,7 +3,12 @@ import json
 import os
 from datetime import datetime
 from typing import Optional, Dict, List, Set
+import pandas as pd
+import matplotlib.pyplot as plt
 from github_api import GitHubAPI
+
+# Constants
+OUTPUT_DIR = "output"
 
 
 def fetch_org_members(github: GitHubAPI, orgs: List[str]) -> Dict[str, Set[str]]:
@@ -189,6 +194,68 @@ def convert_to_tsv(external_contributors: Dict) -> str:
             tsv_data += f"{username}\t{data['prs']}\t{contributions}\t{month}\t{count}\n"
     return tsv_data
 
+def plot_contributor_stats(external_contributors: Dict) -> None:
+    """Create a chart showing contributions and contributors per month."""
+    if not external_contributors:
+        print("No data to plot")
+        return
+
+    # Create monthly aggregated data
+    monthly_data = {}
+    for username, data in external_contributors.items():
+        for month, prs in data["months"].items():
+            if month not in monthly_data:
+                monthly_data[month] = {
+                    "contributions": 0,
+                    "contributors": set()
+                }
+            monthly_data[month]["contributions"] += prs
+            monthly_data[month]["contributors"].add(username)
+
+    # Convert to DataFrame
+    df = pd.DataFrame([
+        {
+            "month": month,
+            "contributions": stats["contributions"],  # Using the monthly aggregated contributions
+            "contributors": len(stats["contributors"])
+        }
+        for month, stats in monthly_data.items()
+    ])
+    df["month"] = pd.to_datetime(df["month"] + "-01")
+    df = df.sort_values("month")
+
+    # Create figure with two y-axes
+    fig, ax1 = plt.subplots(figsize=(12, 6))
+
+    # Plot contributions on primary y-axis
+    ax1.plot(df["month"], df["contributions"], label="Contributions", color="blue", marker="o")
+    ax1.set_xlabel("Month")
+    ax1.set_ylabel("Number of Contributions", color="blue")
+    ax1.tick_params(axis="y", labelcolor="blue")
+
+    # Create secondary y-axis and plot contributors
+    ax2 = ax1.twinx()
+    ax2.plot(df["month"], df["contributors"], label="Contributors", color="red", marker="x")
+    ax2.set_ylabel("Number of Contributors", color="red")
+    ax2.tick_params(axis="y", labelcolor="red")
+
+    # Add title and grid
+    plt.title("External Contributor Activity by Month")
+    ax1.grid(True)
+
+    # Add legends for both lines
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
+
+    # Ensure output directory exists
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
+
+    output_path = os.path.join(OUTPUT_DIR, "contributor_trends.png")
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Chart has been saved as {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get external contributors")
@@ -235,6 +302,9 @@ if __name__ == "__main__":
         since=since_date,
         use_cache_only=args.use_cache_only
     )
+    # Generate chart regardless of output format
+    plot_contributor_stats(external_contributors)
+    
     if args.output_tsv:
         tsv_data = convert_to_tsv(external_contributors)
         print(tsv_data)
