@@ -176,15 +176,15 @@ class GitHubCache:
         if not use_cache_only:
             # Check basic staleness (1 hour)
             last_updated = datetime.fromisoformat(cache['last_updated'])
-            if datetime.utcnow() - last_updated > timedelta(hours=1):
-                logging.info("Cache is stale (older than 1 hour), will fetch fresh data")
+            if datetime.utcnow() - last_updated > timedelta(hours=12):
+                logging.info("Cache is stale (older than 12 hour), will fetch fresh data")
                 return None
                 
             # Check state coverage staleness (15 minutes)
             if 'metadata' in cache and 'state_coverage' in cache['metadata']:
                 last_state_check = datetime.fromisoformat(cache['metadata']['state_coverage']['last_state_check'])
-                if datetime.utcnow() - last_state_check > timedelta(minutes=15):
-                    logging.info("State coverage is stale (older than 15 minutes), will fetch fresh data")
+                if datetime.utcnow() - last_state_check > timedelta(minutes=700):
+                    logging.info("State coverage is stale (older than 700 minutes), will fetch fresh data")
                     return None
         
         return cache
