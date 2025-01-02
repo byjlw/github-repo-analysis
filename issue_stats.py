@@ -1,4 +1,3 @@
-import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 import json
@@ -6,12 +5,13 @@ import os
 import sys
 import logging
 import datetime
+from typing import Optional
+from github_api import GitHubAPI
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Constants
-GITHUB_API = "https://api.github.com/repos/"
 CACHE_DIR = ".cache"
 OUTPUT_DIR = "output"
 
@@ -23,58 +23,25 @@ def load_cache(path):
     with open(path, 'r') as f:
         return json.load(f)
 
-def fetch_issues(repo, token, limit=1000):
-    issues = []
-    page = 1
-    while len(issues) < limit:
-        headers = {
-            'Accept': 'application/vnd.github.v3+json',
-            'Authorization': f'token {token}'
-        }
-        params = {
-            'state': 'all',
-            'page': page,
-            'per_page': 100,
-            'filter': 'all',
-            'direction': 'desc'
-        }
-        response = requests.get(f"{GITHUB_API}{repo}/issues", params=params, headers=headers)
-        if response.status_code != 200:
-            logging.error(f"Failed to fetch issues: {response.json().get('message', 'No error message')}")
-            break
-            
-        response_data = response.json()
-        if not response_data:  # No more issues to fetch
-            break
-            
-        # Filter out pull requests - only keep items that don't have a pull_request object
-        actual_issues = [issue for issue in response_data if not issue.get('pull_request')]
-        issues.extend(actual_issues[:limit - len(issues)])
+def fetch_issues(repo: str, token: str, use_cache_only: bool = False, fetch_limit: Optional[int] = None) -> list:
+    """Fetch issues from GitHub API with caching support.
+    
+    Args:
+        repo: Repository in format 'owner/name'
+        token: GitHub API token
+        use_cache_only: If True, only use cached data
+        fetch_limit: Optional maximum number of issues to fetch
         
-        if len(response_data) < 100:  # Last page
-            break
-            
-        page += 1
-        
-    if len(issues) >= limit:
-        logging.warning(f"Fetched maximum number of issues ({limit}). Results may be incomplete.")
-        
-    return issues
-
-def update_cache_and_fetch(repo, token, use_cache_only=False, fetch_limit=1000):
-    cache_path = f"{CACHE_DIR}/{repo.replace('/', '_')}_issues.json"
-    if not os.path.exists(CACHE_DIR):
-        os.makedirs(CACHE_DIR)
-
-    if os.path.exists(cache_path) and use_cache_only:
-        return load_cache(cache_path)
-
-    if not use_cache_only:
-        issues = fetch_issues(repo, token, limit=fetch_limit)
-        if issues:
-            save_cache(issues, cache_path)
-        return issues
-    return None
+    Returns:
+        List of issues
+    """
+    github = GitHubAPI(token, use_cache=True, use_cache_only=use_cache_only)
+    return github.fetch_issues(
+        repo,
+        limit=fetch_limit,
+        use_cache_only=use_cache_only,
+        include_details=True  # Always get full issue details
+    )
 
 def create_issues_df(issues):
     df = pd.DataFrame(issues)
@@ -167,7 +134,7 @@ if __name__ == "__main__":
         elif arg == '--use-cache-only':
             use_cache_only = True
 
-    issues = update_cache_and_fetch(repo, token, use_cache_only, fetch_limit)
+    issues = fetch_issues(repo, token, use_cache_only=use_cache_only, fetch_limit=fetch_limit)
     if issues:
         df_issues = create_issues_df(issues)
         plot_issues(df_issues)
