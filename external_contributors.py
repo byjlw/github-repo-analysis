@@ -2,9 +2,9 @@ import argparse
 import json
 import os
 from datetime import datetime
-from typing import Optional, Dict, List, Set
+from typing import Optional, Dict, List, Set, Tuple
 import pandas as pd
-import matplotlib.pyplot as plt
+from chart import plot_contributor_trends, plot_open_prs_trend
 from github_api import GitHubAPI
 
 # Constants
@@ -99,7 +99,7 @@ def fetch_pr_data(
     )
 
 
-def process_pr_data(prs: List[Dict], external_contributors: Dict) -> Dict:
+def process_pr_data(prs: List[Dict], external_contributors: Dict) -> Tuple[Dict, Dict[str, int]]:
     """Process PR data for external contributors.
     
     Args:
@@ -107,18 +107,46 @@ def process_pr_data(prs: List[Dict], external_contributors: Dict) -> Dict:
         external_contributors: Dictionary of external contributors
         
     Returns:
-        Updated external contributors dictionary with PR counts
+        Tuple containing:
+        - Updated external contributors dictionary with PR counts
+        - Dictionary mapping dates to number of open PRs from external contributors
     """
+    # Track open PRs over time
+    open_prs_by_date = {}
+    current_date = datetime.now().date()
+    
+    # Process each PR
     for pr in prs:
         username = pr["user"]["login"]
-        if username in external_contributors:
-            created_at = datetime.strptime(pr["created_at"], "%Y-%m-%dT%H:%M:%SZ")
-            month_key = created_at.strftime("%Y-%m")
-            external_contributors[username]["prs"] += 1
-            external_contributors[username]["months"][month_key] = (
-                external_contributors[username]["months"].get(month_key, 0) + 1
-            )
-    return external_contributors
+        if username not in external_contributors:
+            continue
+            
+        # Update monthly PR counts
+        created_at = datetime.strptime(pr["created_at"], "%Y-%m-%dT%H:%M:%SZ")
+        month_key = created_at.strftime("%Y-%m")
+        external_contributors[username]["prs"] += 1
+        external_contributors[username]["months"][month_key] = (
+            external_contributors[username]["months"].get(month_key, 0) + 1
+        )
+        
+        # Track open PRs over time
+        created_date = created_at.date()
+        closed_date = None
+        if pr["closed_at"]:
+            closed_date = datetime.strptime(pr["closed_at"], "%Y-%m-%dT%H:%M:%SZ").date()
+        
+        # Initialize dates if needed
+        date_range = pd.date_range(start=created_date, end=current_date)
+        for date in date_range:
+            date_str = date.strftime("%Y-%m-%d")
+            if date_str not in open_prs_by_date:
+                open_prs_by_date[date_str] = 0
+            
+            # PR is open on this date if it's created and not yet closed
+            if closed_date is None or date.date() < closed_date:
+                open_prs_by_date[date_str] += 1
+    
+    return external_contributors, open_prs_by_date
 
 
 def get_external_contributors(
@@ -129,7 +157,7 @@ def get_external_contributors(
     github_token: str,
     since: Optional[datetime] = None,
     use_cache_only: bool = False
-) -> Dict:
+) -> Tuple[Dict, Dict[str, int]]:
     """Fetch external contributors and their monthly PR counts.
     
     Args:
@@ -142,7 +170,9 @@ def get_external_contributors(
         use_cache_only: If True, only use cached data
         
     Returns:
-        Dictionary of external contributors and their PR counts
+        Tuple containing:
+        - Dictionary of external contributors and their PR counts
+        - Dictionary mapping dates to number of open PRs from external contributors
     """
     github = GitHubAPI(github_token, use_cache=True, use_cache_only=use_cache_only)
     
@@ -164,13 +194,13 @@ def get_external_contributors(
             }
     
     if not external_contributors:
-        return {}
+        return {}, {}
     
     # Get and process PR data
     prs = fetch_pr_data(github, repo_owner, repo_name, since)
-    external_contributors = process_pr_data(prs, external_contributors)
+    external_contributors, open_prs_by_date = process_pr_data(prs, external_contributors)
     
-    return external_contributors
+    return external_contributors, open_prs_by_date
 
 
 def print_external_contributors(external_contributors: Dict) -> None:
@@ -193,69 +223,6 @@ def convert_to_tsv(external_contributors: Dict) -> str:
         for month, count in data["months"].items():
             tsv_data += f"{username}\t{data['prs']}\t{contributions}\t{month}\t{count}\n"
     return tsv_data
-
-def plot_contributor_stats(external_contributors: Dict) -> None:
-    """Create a chart showing contributions and contributors per month."""
-    if not external_contributors:
-        print("No data to plot")
-        return
-
-    # Create monthly aggregated data
-    monthly_data = {}
-    for username, data in external_contributors.items():
-        for month, prs in data["months"].items():
-            if month not in monthly_data:
-                monthly_data[month] = {
-                    "contributions": 0,
-                    "contributors": set()
-                }
-            monthly_data[month]["contributions"] += prs
-            monthly_data[month]["contributors"].add(username)
-
-    # Convert to DataFrame
-    df = pd.DataFrame([
-        {
-            "month": month,
-            "contributions": stats["contributions"],  # Using the monthly aggregated contributions
-            "contributors": len(stats["contributors"])
-        }
-        for month, stats in monthly_data.items()
-    ])
-    df["month"] = pd.to_datetime(df["month"] + "-01")
-    df = df.sort_values("month")
-
-    # Create figure with two y-axes
-    fig, ax1 = plt.subplots(figsize=(12, 6))
-
-    # Plot contributions on primary y-axis
-    ax1.plot(df["month"], df["contributions"], label="Contributions", color="blue", marker="o")
-    ax1.set_xlabel("Month")
-    ax1.set_ylabel("Number of Contributions", color="blue")
-    ax1.tick_params(axis="y", labelcolor="blue")
-
-    # Create secondary y-axis and plot contributors
-    ax2 = ax1.twinx()
-    ax2.plot(df["month"], df["contributors"], label="Contributors", color="red", marker="x")
-    ax2.set_ylabel("Number of Contributors", color="red")
-    ax2.tick_params(axis="y", labelcolor="red")
-
-    # Add title and grid
-    plt.title("External Contributor Activity by Month")
-    ax1.grid(True)
-
-    # Add legends for both lines
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
-
-    # Ensure output directory exists
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-
-    output_path = os.path.join(OUTPUT_DIR, "contributor_trends.png")
-    plt.savefig(output_path)
-    plt.close()
-    print(f"Chart has been saved as {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get external contributors")
@@ -293,7 +260,7 @@ if __name__ == "__main__":
         exclude_contributors = [exclude_contributors]
     if since_date:
         since_date = datetime.strptime(since_date, "%Y-%m-%d")
-    external_contributors = get_external_contributors(
+    external_contributors, open_prs_by_date = get_external_contributors(
         repo_owner,
         repo_name,
         filter_orgs or [],
@@ -302,11 +269,19 @@ if __name__ == "__main__":
         since=since_date,
         use_cache_only=args.use_cache_only
     )
-    # Generate chart regardless of output format
-    plot_contributor_stats(external_contributors)
+    
+    # Generate both charts
+    plot_contributor_trends(external_contributors)
+    plot_open_prs_trend(open_prs_by_date)
+    
+    # Add open PRs data to the output
+    output_data = {
+        "contributors": external_contributors,
+        "open_prs_by_date": open_prs_by_date
+    }
     
     if args.output_tsv:
         tsv_data = convert_to_tsv(external_contributors)
         print(tsv_data)
     else:
-        print(json.dumps(external_contributors, indent=4))
+        print(json.dumps(output_data, indent=4))
