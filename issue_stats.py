@@ -49,7 +49,24 @@ def create_issues_df(issues):
     df['closed_at'] = pd.to_datetime(df['closed_at'], errors='coerce').dt.date
     # Add state column explicitly
     df['state'] = df['state'].astype(str)
+    
+    # Extract labels into a list
+    df['labels'] = df['labels'].apply(lambda x: [label['name'] for label in x] if x else [])
+    # Add a column for issues with no labels
+    df['has_no_labels'] = df['labels'].apply(lambda x: len(x) == 0)
+    
     return df
+
+def plot_label_trends(df_issues):
+    """Create a chart showing issue trends by label over time."""
+    from chart import plot_issues_by_label
+    
+    # Get all unique labels
+    all_labels = set()
+    for labels in df_issues['labels']:
+        all_labels.update(labels)
+    
+    plot_issues_by_label(df_issues, list(all_labels))
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -70,6 +87,8 @@ if __name__ == "__main__":
     issues = fetch_issues(repo, token, use_cache_only=use_cache_only, fetch_limit=fetch_limit)
     if issues:
         df_issues = create_issues_df(issues)
+        # Generate both charts
         plot_issue_trends(df_issues)
+        plot_label_trends(df_issues)
     else:
         logging.info("No issues found in cache or API.")
