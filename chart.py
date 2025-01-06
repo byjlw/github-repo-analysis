@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 from typing import Dict, List, Optional
 import datetime
 
@@ -101,6 +102,144 @@ def plot_contributor_trends(external_contributors: Dict[str, Dict[str, dict]], o
     plt.savefig(output_path)
     plt.close()
     print(f"Chart has been saved as {output_path}")
+
+def plot_issues_by_label(df_issues: pd.DataFrame, labels: list, output_filename: str = "issue_trends_by_label.png") -> None:
+    """Create a chart showing issue trends by label over time.
+    
+    Args:
+        df_issues: DataFrame containing issue data
+        labels: List of label names to plot
+        output_filename: Name of the output file
+    """
+    if df_issues.empty:
+        print("No data to plot")
+        return
+
+    # Convert dates to datetime for proper comparison
+    start_date = min(df_issues['created_at'])
+    end_date = datetime.datetime.now().date()
+    date_range = pd.date_range(start=start_date, end=end_date)
+    
+    # Create figure with more height to accommodate bottom legend
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Set y-axis to logarithmic scale with more ticks
+    ax.set_yscale('log')
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: '{:,.0f}'.format(x)))
+    
+    # Calculate and store max issues for each label
+    label_max_issues = {}
+    for label in labels:
+        max_count = 0
+        for date in date_range:
+            date = date.date()
+            count = len(df_issues[
+                (df_issues['created_at'] <= date) & 
+                (df_issues['labels'].apply(lambda x: label in x)) &
+                (
+                    ((df_issues['state'] == 'open') & (df_issues['created_at'] <= date)) |
+                    ((df_issues['state'] == 'closed') & (df_issues['closed_at'] > date))
+                )
+            ])
+            max_count = max(max_count, count)
+        label_max_issues[label] = max_count
+    
+    # Calculate max issues for unlabeled
+    max_unlabeled = 0
+    for date in date_range:
+        date = date.date()
+        count = len(df_issues[
+            (df_issues['created_at'] <= date) & 
+            (df_issues['has_no_labels']) &
+            (
+                ((df_issues['state'] == 'open') & (df_issues['created_at'] <= date)) |
+                ((df_issues['state'] == 'closed') & (df_issues['closed_at'] > date))
+            )
+        ])
+        max_unlabeled = max(max_unlabeled, count)
+    
+    # Get top 15 labels by max issues
+    top_labels = sorted(label_max_issues.items(), key=lambda x: x[1], reverse=True)[:14]  # 14 to leave room for unlabeled
+    
+    # Create colors for top labels plus unlabeled
+    colors = plt.cm.rainbow(np.linspace(0, 1, len(top_labels) + 1))
+    
+    legend_labels = []
+    legend_lines = []
+    
+    # Plot lines for top labels
+    for i, (label, _) in enumerate(top_labels):
+        open_issues = []
+        for date in date_range:
+            date = date.date()
+            open_count = len(df_issues[
+                (df_issues['created_at'] <= date) & 
+                (df_issues['labels'].apply(lambda x: label in x)) &
+                (
+                    ((df_issues['state'] == 'open') & (df_issues['created_at'] <= date)) |
+                    ((df_issues['state'] == 'closed') & (df_issues['closed_at'] > date))
+                )
+            ])
+            open_issues.append(open_count)
+        
+        line = ax.plot(date_range, open_issues, color=colors[i], marker='o', markersize=2)[0]
+        current_count = open_issues[-1]
+        legend_labels.append(f'{label} ({current_count})')
+        legend_lines.append(line)
+    
+    # Plot unlabeled line if it has any issues
+    if max_unlabeled > 0:
+        open_no_labels = []
+        for date in date_range:
+            date = date.date()
+            open_count = len(df_issues[
+                (df_issues['created_at'] <= date) & 
+                (df_issues['has_no_labels']) &
+                (
+                    ((df_issues['state'] == 'open') & (df_issues['created_at'] <= date)) |
+                    ((df_issues['state'] == 'closed') & (df_issues['closed_at'] > date))
+                )
+            ])
+            open_no_labels.append(open_count)
+        
+        line = ax.plot(date_range, open_no_labels, color=colors[-1], marker='o', markersize=2)[0]
+        current_no_labels = open_no_labels[-1]
+        legend_labels.append(f'No Labels ({current_no_labels})')
+        legend_lines.append(line)
+    
+    # Add more tick marks and grid
+    ax.yaxis.set_minor_formatter(plt.FuncFormatter(lambda x, _: '{:,.0f}'.format(x)))
+    ax.yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=np.arange(2, 10) * 0.1, numticks=100))
+    ax.grid(True, which='both', ls='-', alpha=0.2)
+    
+    # Add title and labels
+    plt.title("Open Issues by Label Over Time")
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Number of Open Issues (log scale)')
+    
+    # Sort legend items by current count (descending)
+    current_counts = [int(label.split('(')[1].rstrip(')')) for label in legend_labels]
+    sorted_indices = np.argsort(current_counts)[::-1]
+    legend_labels = [legend_labels[i] for i in sorted_indices]
+    legend_lines = [legend_lines[i] for i in sorted_indices]
+    
+    # Add legend at the bottom with current counts
+    num_labels = len(legend_labels)
+    ncol = min(4, num_labels)  # Use up to 4 columns
+    ax.legend(legend_lines, legend_labels, 
+             loc='upper center', 
+             bbox_to_anchor=(0.5, -0.15),  # Position below the plot
+             fontsize='small',
+             ncol=ncol)
+    
+    # Adjust layout to prevent legend cutoff
+    plt.tight_layout()
+    
+    ensure_output_dir()
+    output_path = os.path.join(OUTPUT_DIR, output_filename)
+    plt.savefig(output_path, bbox_inches='tight')  # Ensure legend is not cut off
+    plt.close()
+    print(f"Label-based chart has been saved as {output_path}")
 
 def plot_issue_trends(df_issues: pd.DataFrame, output_filename: str = "issue_trends.png") -> None:
     """Create a chart showing issue trends over time.

@@ -80,6 +80,23 @@ user2        3         2022-01  1
 user2        3         2022-03  2
 ```
 
+#### Visualizations
+
+The script generates charts to help understand contribution patterns:
+
+1. **Contributor Activity** (contributor_trends.png):
+   - Shows monthly contributions and unique contributors
+   - Blue line: Number of contributions per month
+   - Red line: Number of unique contributors per month
+
+   ![Contributor Trends](docs/contributor_trends.png)
+
+2. **Open Pull Requests** (open_prs_trend.png):
+   - Shows the number of open PRs over time
+   - Helps track PR review and merge velocity
+
+   ![Open PRs Trend](docs/open_prs_trend.png)
+
 ### Issue Statistics
 
 This script analyzes and visualizes issue trends for a GitHub repository, showing the number of open issues over time and issues closed per day.
@@ -105,11 +122,24 @@ This will analyze up to 2000 issues from the pytorch/pytorch repository.
 
 #### Output
 
-The script generates a chart showing:
-- Number of open issues over time (red line)
-- Number of issues closed per day (blue line)
+The script generates two charts in the output directory:
 
-The chart is saved as 'issue_trends.png' in the output directory.
+1. **Overall Issue Trends** (issue_trends.png):
+   - Number of open issues over time (red line)
+   - Number of issues closed per day (blue line)
+
+   ![Issue Trends](docs/issue_trends.png)
+
+2. **Issues by Label** (issue_trends_by_label.png):
+   - Shows trends for the top 14 most-used labels
+   - Includes a line for unlabeled issues
+   - Uses logarithmic scale for better visualization
+   - Legend shows current count for each label
+   - Labels sorted by current count for easy reference
+
+   ![Issues by Label](docs/issue_trends_by_label.png)
+
+Both charts provide complementary views of the repository's issue activity - one showing overall trends and the other breaking down issues by their labels.
 
 ## Core Components
 
