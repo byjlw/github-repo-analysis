@@ -240,8 +240,10 @@ if __name__ == "__main__":
         "--output-tsv", action="store_true", help="Output in TSV format"
     )
     parser.add_argument(
-        "--use-cache-only", action="store_true", help="Only use cached data, no API calls"
+        "--use-cache-only", action="store_true", help="Only use cached data"
     )
+    parser.add_argument("--start-date", help="Start date for charts (YYYY-MM-DD)")
+    parser.add_argument("--end-date", help="End date for charts (YYYY-MM-DD)")
     args = parser.parse_args()
     repo_owner = args.repo_owner or os.environ.get("REPO_OWNER")
     repo_name = args.repo_name or os.environ.get("REPO_NAME")
@@ -270,9 +272,17 @@ if __name__ == "__main__":
         use_cache_only=args.use_cache_only
     )
     
-    # Generate both charts
-    plot_contributor_trends(external_contributors)
-    plot_open_prs_trend(open_prs_by_date)
+    # Parse date range for charts if provided
+    start_date = None
+    end_date = None
+    if args.start_date:
+        start_date = datetime.strptime(args.start_date, "%Y-%m-%d").date()
+    if args.end_date:
+        end_date = datetime.strptime(args.end_date, "%Y-%m-%d").date()
+
+    # Generate both charts with date range
+    plot_contributor_trends(external_contributors, start_date=start_date, end_date=end_date)
+    plot_open_prs_trend(open_prs_by_date, start_date=start_date, end_date=end_date)
     
     # Add open PRs data to the output
     output_data = {

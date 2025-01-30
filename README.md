@@ -19,7 +19,7 @@ This script fetches external contributors to a GitHub repository and their month
 #### Usage
 
 ```bash
-python external_contributors.py --repo-owner <repo_owner> --repo-name <repo_name> --github-token <github_token> [--filter-organizations <filter_orgs>] [--exclude-contributors <exclude_contributors>] [--since <since_date>] [--output-tsv]
+python external_contributors.py --repo-owner <repo_owner> --repo-name <repo_name> --github-token <github_token> [--filter-organizations <filter_orgs>] [--exclude-contributors <exclude_contributors>] [--since <since_date>] [--output-tsv] [--start-date <start_date>] [--end-date <end_date>]
 ```
 
 *   `repo_owner`: The owner of the GitHub repository.
@@ -27,8 +27,10 @@ python external_contributors.py --repo-owner <repo_owner> --repo-name <repo_name
 *   `github_token`: A valid GitHub token with read access to the repository.
 *   `filter_orgs`: A list of organizations to filter out (optional).
 *   `exclude_contributors`: A list of contributors to exclude (optional).
-*   `since_date`: The date to start from (YYYY-MM-DD) (optional).
+*   `since_date`: The date to start fetching data from (YYYY-MM-DD) (optional).
 *   `--output-tsv`: Output in TSV format instead of JSON (optional).
+*   `start_date`: The date to start displaying in charts (YYYY-MM-DD) (optional).
+*   `end_date`: The date to end displaying in charts (YYYY-MM-DD) (optional).
 
 #### Environment Variables
 
@@ -43,10 +45,14 @@ You can also set the following environment variables:
 #### Example
 
 ```bash
+# Fetch all data since 2022
 python external_contributors.py --repo-owner pytorch --repo-name torchchat --github-token ghp_g9lT43p6uQxXcK4yN8e7zRfOaM1wSbv --filter-organizations pytorch pytorch-labs --exclude-contributors user1 user2 --since 2022-01-01
+
+# Fetch all data but display charts for 2023 only
+python external_contributors.py --repo-owner pytorch --repo-name torchchat --github-token ghp_g9lT43p6uQxXcK4yN8e7zRfOaM1wSbv --filter-organizations pytorch pytorch-labs --start-date 2023-01-01 --end-date 2023-12-31
 ```
 
-This will fetch external contributors to the `pytorch/torchchat` repository, excluding members of the `pytorch` and `pytorch-labs` organizations, and excluding the contributors `user1` and `user2`. It will only include contributors who have made contributions since January 1, 2022.
+This will fetch external contributors to the `pytorch/torchchat` repository, excluding members of the `pytorch` and `pytorch-labs` organizations, and excluding the contributors `user1` and `user2`. The `--since` parameter determines what data to fetch, while `--start-date` and `--end-date` control what time period to display in the charts.
 
 #### Output
 
@@ -88,12 +94,14 @@ The script generates charts to help understand contribution patterns:
    - Shows monthly contributions and unique contributors
    - Blue line: Number of contributions per month
    - Red line: Number of unique contributors per month
+   - Can be filtered by date range using --start-date and --end-date
 
    ![Contributor Trends](docs/contributor_trends.png)
 
 2. **Open Pull Requests** (open_prs_trend.png):
    - Shows the number of open PRs over time
    - Helps track PR review and merge velocity
+   - Can be filtered by date range using --start-date and --end-date
 
    ![Open PRs Trend](docs/open_prs_trend.png)
 
@@ -104,21 +112,27 @@ This script analyzes and visualizes issue trends for a GitHub repository, showin
 #### Usage
 
 ```bash
-python issue_stats.py <github-repo> <personal-access-token> [fetch-limit] [--use-cache-only]
+python issue_stats.py <github-repo> <personal-access-token> [fetch-limit] [--use-cache-only] [--start-date <start_date>] [--end-date <end_date>]
 ```
 
 *   `github-repo`: The repository in format 'owner/name' (e.g., 'pytorch/pytorch')
 *   `personal-access-token`: A valid GitHub token with read access to the repository
 *   `fetch-limit`: Maximum number of issues to fetch (optional, default: 1000)
 *   `--use-cache-only`: Use only cached data, don't make API calls (optional)
+*   `start_date`: The date to start displaying in charts (YYYY-MM-DD) (optional)
+*   `end_date`: The date to end displaying in charts (YYYY-MM-DD) (optional)
 
 #### Example
 
 ```bash
+# Fetch 2000 issues
 python issue_stats.py pytorch/pytorch ghp_g9lT43p6uQxXcK4yN8e7zRfOaM1wSbv 2000
+
+# Fetch issues and display charts for 2023 only
+python issue_stats.py pytorch/pytorch ghp_g9lT43p6uQxXcK4yN8e7zRfOaM1wSbv --start-date 2023-01-01 --end-date 2023-12-31
 ```
 
-This will analyze up to 2000 issues from the pytorch/pytorch repository.
+This will analyze issues from the pytorch/pytorch repository. The fetch-limit controls how many issues to retrieve, while --start-date and --end-date control what time period to display in the charts.
 
 #### Output
 
@@ -127,6 +141,7 @@ The script generates two charts in the output directory:
 1. **Overall Issue Trends** (issue_trends.png):
    - Number of open issues over time (red line)
    - Number of issues closed per day (blue line)
+   - Can be filtered by date range using --start-date and --end-date
 
    ![Issue Trends](docs/issue_trends.png)
 
@@ -136,6 +151,7 @@ The script generates two charts in the output directory:
    - Uses logarithmic scale for better visualization
    - Legend shows current count for each label
    - Labels sorted by current count for easy reference
+   - Can be filtered by date range using --start-date and --end-date
 
    ![Issues by Label](docs/issue_trends_by_label.png)
 

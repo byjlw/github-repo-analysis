@@ -69,26 +69,29 @@ def plot_label_trends(df_issues):
     plot_issues_by_label(df_issues, list(all_labels))
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        logging.error("Usage: python script.py <github-repo> <personal-access-token> [fetch-limit] [--use-cache-only]")
-        sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser(description="Analyze GitHub repository issues")
+    parser.add_argument("repo", help="Repository in format 'owner/name'")
+    parser.add_argument("token", help="GitHub personal access token")
+    parser.add_argument("--fetch-limit", type=int, default=1000, help="Maximum number of issues to fetch")
+    parser.add_argument("--use-cache-only", action="store_true", help="Only use cached data")
+    parser.add_argument("--start-date", help="Start date for charts (YYYY-MM-DD)")
+    parser.add_argument("--end-date", help="End date for charts (YYYY-MM-DD)")
+    
+    args = parser.parse_args()
+    
+    start_date = None
+    end_date = None
+    if args.start_date:
+        start_date = datetime.datetime.strptime(args.start_date, "%Y-%m-%d").date()
+    if args.end_date:
+        end_date = datetime.datetime.strptime(args.end_date, "%Y-%m-%d").date()
 
-    repo = sys.argv[1]
-    token = sys.argv[2]
-    fetch_limit = 1000  # Default fetch limit
-    use_cache_only = False
-
-    for arg in sys.argv[3:]:
-        if arg.isdigit():
-            fetch_limit = int(arg)
-        elif arg == '--use-cache-only':
-            use_cache_only = True
-
-    issues = fetch_issues(repo, token, use_cache_only=use_cache_only, fetch_limit=fetch_limit)
+    issues = fetch_issues(args.repo, args.token, use_cache_only=args.use_cache_only, fetch_limit=args.fetch_limit)
     if issues:
         df_issues = create_issues_df(issues)
-        # Generate both charts
-        plot_issue_trends(df_issues)
-        plot_label_trends(df_issues)
+        # Generate both charts with date range
+        plot_issue_trends(df_issues, start_date=start_date, end_date=end_date)
+        plot_label_trends(df_issues, start_date=start_date, end_date=end_date)
     else:
         logging.info("No issues found in cache or API.")
