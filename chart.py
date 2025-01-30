@@ -7,6 +7,7 @@ import datetime
 
 # Constants
 OUTPUT_DIR = "output"
+MAX_LABELS = 14  # Maximum number of labels to show in label trends chart (excluding unlabeled)
 
 def ensure_output_dir():
     """Ensure output directory exists."""
@@ -167,11 +168,21 @@ def plot_issues_by_label(df_issues: pd.DataFrame, labels: list, output_filename:
     ax.yaxis.set_minor_locator(plt.LogLocator(base=10.0, subs=np.arange(2, 10) * 0.1, numticks=100))
     ax.grid(True, which='both', ls='-', alpha=0.2)
 
-    # Calculate and plot trends for each label
-    colors = plt.cm.rainbow(np.linspace(0, 1, len(labels) + 1))
+    # Calculate max issues for each label
+    label_max_issues = {}
+    for label in labels:
+        max_count = max([count_open_issues(df_issues, date.date(), label) for date in date_range])
+        label_max_issues[label] = max_count
+
+    # Get top labels by max issues
+    top_labels = sorted(label_max_issues.items(), key=lambda x: x[1], reverse=True)[:MAX_LABELS]
+    top_label_names = [label for label, _ in top_labels]
+
+    # Calculate and plot trends for top labels
+    colors = plt.cm.rainbow(np.linspace(0, 1, len(top_label_names) + 1))
     legend_data = []
 
-    for i, label in enumerate(labels):
+    for i, label in enumerate(top_label_names):
         open_issues = [count_open_issues(df_issues, date.date(), label) for date in date_range]
         line = ax.plot(date_range, open_issues, color=colors[i], marker='o', markersize=2)[0]
         legend_data.append((line, f"{label} ({open_issues[-1]})", open_issues[-1]))
