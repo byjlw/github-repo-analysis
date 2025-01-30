@@ -45,8 +45,8 @@ def fetch_issues(repo: str, token: str, use_cache_only: bool = False, fetch_limi
 
 def create_issues_df(issues):
     df = pd.DataFrame(issues)
-    df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce').dt.date
-    df['closed_at'] = pd.to_datetime(df['closed_at'], errors='coerce').dt.date
+    df['created_at'] = pd.to_datetime(df['created_at'], format='%Y-%m-%dT%H:%M:%SZ', errors='coerce').dt.date
+    df['closed_at'] = pd.to_datetime(df['closed_at'], format='%Y-%m-%dT%H:%M:%SZ', errors='coerce').dt.date
     # Add state column explicitly
     df['state'] = df['state'].astype(str)
     
@@ -57,8 +57,14 @@ def create_issues_df(issues):
     
     return df
 
-def plot_label_trends(df_issues):
-    """Create a chart showing issue trends by label over time."""
+def plot_label_trends(df_issues, start_date=None, end_date=None):
+    """Create a chart showing issue trends by label over time.
+    
+    Args:
+        df_issues: DataFrame containing issue data
+        start_date: Optional start date to constrain chart range
+        end_date: Optional end date to constrain chart range
+    """
     from chart import plot_issues_by_label
     
     # Get all unique labels
@@ -66,7 +72,7 @@ def plot_label_trends(df_issues):
     for labels in df_issues['labels']:
         all_labels.update(labels)
     
-    plot_issues_by_label(df_issues, list(all_labels))
+    plot_issues_by_label(df_issues, list(all_labels), start_date=start_date, end_date=end_date)
 
 if __name__ == "__main__":
     import argparse
