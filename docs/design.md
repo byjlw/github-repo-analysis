@@ -33,7 +33,21 @@ The system is built around a central GitHub API client with specialized analysis
                                    │             │
                                    │  chart.py   │
                                    │             │
-                                   └─────────────┘
+                                   └──────┬──────┘
+                                          │
+                    ┌───────────────────────────────────────┐
+                    │                     │                 │
+            ┌───────┴───────┐    ┌───────┴───────┐ ┌───────┴───────┐
+            │               │    │               │ │               │
+            │chart_utils.py │    │chart_base.py  │ │chart_issues.py│
+            │               │    │               │ │               │
+            └───────────────┘    └───────────────┘ └───────────────┘
+                                                    │
+                                          ┌─────────┴─────────┐
+                                          │                   │
+                                          │chart_contributors.py│
+                                          │                   │
+                                          └───────────────────┘
 ```
 
 ## Component Details
@@ -80,15 +94,38 @@ Analyzes contribution patterns from internal, external, and unknown contributors
 - Supports visualization of internal vs. external vs. unknown contribution patterns
 - Handles contributor classification with precedence rules
 
-### Visualization Engine (chart.py)
+### Visualization Engine
 
-Generates standardized visualizations of repository metrics:
-- Manages consistent chart styling and formatting
-- Handles date range calculations from data
-- Creates time series visualizations
-- Manages multi-axis charts for related metrics
-- Handles legend positioning and formatting
-- Provides output file management
+The visualization system is modularized into several components:
+
+#### chart.py
+- Acts as a thin wrapper around specialized chart modules
+- Re-exports all chart functions to maintain backward compatibility
+- Provides a unified interface for all visualization needs
+
+#### chart_utils.py
+- Contains constants and utility functions
+- Manages output directory creation
+- Handles chart saving and file management
+- Provides date range calculation utilities
+
+#### chart_base.py
+- Implements common chart setup and configuration
+- Provides base chart styling and formatting
+- Handles dual-axis chart creation
+- Contains shared data processing functions
+
+#### chart_issues.py
+- Specializes in issue-related visualizations
+- Implements issue trend charts
+- Creates label-based issue analysis charts
+- Handles issue-specific data processing
+
+#### chart_contributors.py
+- Focuses on contributor-related visualizations
+- Creates contributor trend charts
+- Implements open PR timeline visualizations
+- Processes contributor-specific data
 
 ## Data Flow
 
@@ -159,10 +196,13 @@ The system can be extended in several ways:
 - Create visualization support
 
 ### Enhanced Visualization
-- Add new chart types to chart.py
-- Maintain consistent styling
-- Support standard date filtering
-- Follow existing output patterns
+- Add new chart types to the appropriate specialized module
+- Create new chart modules for entirely new visualization categories
+- Extend chart_base.py for new shared chart functionality
+- Update chart.py to re-export any new functions
+- Maintain consistent styling across all chart modules
+- Support standard date filtering in all visualizations
+- Follow existing output patterns for consistency
 
 ## Best Practices
 
@@ -179,6 +219,9 @@ When modifying or extending the system:
    - Maintain data accuracy across date ranges
 
 3. Visualization:
-   - Follow established chart formatting
-   - Support standard date range parameters
-   - Maintain consistent output handling
+   - Place new chart functions in the appropriate specialized module
+   - Leverage common functionality from chart_base.py and chart_utils.py
+   - Follow established chart formatting and styling conventions
+   - Support standard date range parameters in all chart functions
+   - Maintain consistent output handling across all chart types
+   - Update chart.py to re-export any new functions for backward compatibility
