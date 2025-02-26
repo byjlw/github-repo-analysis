@@ -68,15 +68,17 @@ Processes and analyzes repository issue data:
 - Handles date range filtering while maintaining data accuracy
 - Feeds processed data to visualization system
 
-### External Contributor Analysis (external_contributors.py)
+### Contributor Analysis (external_contributors.py)
 
-Analyzes contribution patterns from external contributors:
-- Filters contributors based on organization membership
-- Tracks PR creation and closure over time
-- Aggregates contributions by time period
+Analyzes contribution patterns from internal, external, and unknown contributors:
+- Classifies contributors based on organization membership and explicit lists
+- Identifies "unknown" contributors when both internal and external lists are provided
+- Tracks PR creation and closure over time by contributor type
+- Aggregates contributions by time period and contributor type
 - Maintains contributor statistics and history
 - Processes PR state changes for timeline analysis
-- Handles excluded contributor filtering
+- Supports visualization of internal vs. external vs. unknown contribution patterns
+- Handles contributor classification with precedence rules
 
 ### Visualization Engine (chart.py)
 
@@ -112,19 +114,25 @@ Generates standardized visualizations of repository metrics:
 
 1. Initial Setup:
    - Fetch and cache organization member lists
-   - Create filtered contributor list
-   - Initialize tracking structures
+   - Classify contributors based on the following precedence rules:
+     - Explicit external contributor list (highest priority)
+     - Explicit internal contributor list
+     - Organization membership
+     - If both internal and external lists are provided, contributors not in either list are classified as "unknown"
+     - Otherwise, default to external
+   - Initialize tracking structures by contributor type (internal, external, unknown)
 
 2. Data Processing:
    - Process PR data for each contributor
-   - Track PR states over time
-   - Aggregate contributions by time period
+   - Track PR states over time by contributor type
+   - Aggregate contributions by time period and contributor type
    - Calculate contributor statistics
 
 3. Output Generation:
-   - Generate contributor trend visualizations
-   - Create PR timeline charts
-   - Output contributor statistics
+   - Generate contributor trend visualizations with optional filtering
+   - Create PR timeline charts with contributor type differentiation
+   - Output contributor statistics with type information
+   - Filter output based on show flags
 
 ## Component Interaction
 
