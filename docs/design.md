@@ -33,7 +33,21 @@ The system is built around a central GitHub API client with specialized analysis
                                    │             │
                                    │  chart.py   │
                                    │             │
-                                   └─────────────┘
+                                   └──────┬──────┘
+                                          │
+                    ┌───────────────────────────────────────┐
+                    │                     │                 │
+            ┌───────┴───────┐    ┌───────┴───────┐ ┌───────┴───────┐
+            │               │    │               │ │               │
+            │chart_utils.py │    │chart_base.py  │ │chart_issues.py│
+            │               │    │               │ │               │
+            └───────────────┘    └───────────────┘ └───────────────┘
+                                                    │
+                                          ┌─────────┴─────────┐
+                                          │                   │
+                                          │chart_contributors.py│
+                                          │                   │
+                                          └───────────────────┘
 ```
 
 ## Component Details
@@ -68,25 +82,50 @@ Processes and analyzes repository issue data:
 - Handles date range filtering while maintaining data accuracy
 - Feeds processed data to visualization system
 
-### External Contributor Analysis (external_contributors.py)
+### Contributor Analysis (external_contributors.py)
 
-Analyzes contribution patterns from external contributors:
-- Filters contributors based on organization membership
-- Tracks PR creation and closure over time
-- Aggregates contributions by time period
+Analyzes contribution patterns from internal, external, and unknown contributors:
+- Classifies contributors based on organization membership and explicit lists
+- Identifies "unknown" contributors when both internal and external lists are provided
+- Tracks PR creation and closure over time by contributor type
+- Aggregates contributions by time period and contributor type
 - Maintains contributor statistics and history
 - Processes PR state changes for timeline analysis
-- Handles excluded contributor filtering
+- Supports visualization of internal vs. external vs. unknown contribution patterns
+- Handles contributor classification with precedence rules
 
-### Visualization Engine (chart.py)
+### Visualization Engine
 
-Generates standardized visualizations of repository metrics:
-- Manages consistent chart styling and formatting
-- Handles date range calculations from data
-- Creates time series visualizations
-- Manages multi-axis charts for related metrics
-- Handles legend positioning and formatting
-- Provides output file management
+The visualization system is modularized into several components:
+
+#### chart.py
+- Acts as a thin wrapper around specialized chart modules
+- Re-exports all chart functions to maintain backward compatibility
+- Provides a unified interface for all visualization needs
+
+#### chart_utils.py
+- Contains constants and utility functions
+- Manages output directory creation
+- Handles chart saving and file management
+- Provides date range calculation utilities
+
+#### chart_base.py
+- Implements common chart setup and configuration
+- Provides base chart styling and formatting
+- Handles dual-axis chart creation
+- Contains shared data processing functions
+
+#### chart_issues.py
+- Specializes in issue-related visualizations
+- Implements issue trend charts
+- Creates label-based issue analysis charts
+- Handles issue-specific data processing
+
+#### chart_contributors.py
+- Focuses on contributor-related visualizations
+- Creates contributor trend charts
+- Implements open PR timeline visualizations
+- Processes contributor-specific data
 
 ## Data Flow
 
@@ -112,19 +151,25 @@ Generates standardized visualizations of repository metrics:
 
 1. Initial Setup:
    - Fetch and cache organization member lists
-   - Create filtered contributor list
-   - Initialize tracking structures
+   - Classify contributors based on the following precedence rules:
+     - Explicit external contributor list (highest priority)
+     - Explicit internal contributor list
+     - Organization membership
+     - If both internal and external lists are provided, contributors not in either list are classified as "unknown"
+     - Otherwise, default to external
+   - Initialize tracking structures by contributor type (internal, external, unknown)
 
 2. Data Processing:
    - Process PR data for each contributor
-   - Track PR states over time
-   - Aggregate contributions by time period
+   - Track PR states over time by contributor type
+   - Aggregate contributions by time period and contributor type
    - Calculate contributor statistics
 
 3. Output Generation:
-   - Generate contributor trend visualizations
-   - Create PR timeline charts
-   - Output contributor statistics
+   - Generate contributor trend visualizations with optional filtering
+   - Create PR timeline charts with contributor type differentiation
+   - Output contributor statistics with type information
+   - Filter output based on show flags
 
 ## Component Interaction
 
@@ -151,10 +196,13 @@ The system can be extended in several ways:
 - Create visualization support
 
 ### Enhanced Visualization
-- Add new chart types to chart.py
-- Maintain consistent styling
-- Support standard date filtering
-- Follow existing output patterns
+- Add new chart types to the appropriate specialized module
+- Create new chart modules for entirely new visualization categories
+- Extend chart_base.py for new shared chart functionality
+- Update chart.py to re-export any new functions
+- Maintain consistent styling across all chart modules
+- Support standard date filtering in all visualizations
+- Follow existing output patterns for consistency
 
 ## Best Practices
 
@@ -171,6 +219,9 @@ When modifying or extending the system:
    - Maintain data accuracy across date ranges
 
 3. Visualization:
-   - Follow established chart formatting
-   - Support standard date range parameters
-   - Maintain consistent output handling
+   - Place new chart functions in the appropriate specialized module
+   - Leverage common functionality from chart_base.py and chart_utils.py
+   - Follow established chart formatting and styling conventions
+   - Support standard date range parameters in all chart functions
+   - Maintain consistent output handling across all chart types
+   - Update chart.py to re-export any new functions for backward compatibility
