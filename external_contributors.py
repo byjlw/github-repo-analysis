@@ -120,7 +120,7 @@ def fetch_pr_data(
     )
 
 
-def process_pr_data(prs: List[Dict], contributors: Dict) -> Tuple[Dict, Dict[str, Dict[str, int]]]:
+def process_pr_data(prs: List[Dict], contributors: Dict) -> Tuple[Dict, Dict[str, Dict[str, int]], Dict[str, Set[int]]]:
     """Process PR data for contributors.
     
     Args:
@@ -131,12 +131,19 @@ def process_pr_data(prs: List[Dict], contributors: Dict) -> Tuple[Dict, Dict[str
         Tuple containing:
         - Updated contributors dictionary with PR counts
         - Dictionary mapping dates to number of open PRs by contributor type
+        - Dictionary mapping contributor types to sets of currently open PR numbers
     """
     # Track open PRs over time by contributor type
     open_prs_by_date = {
         "internal": {},
         "external": {},
         "unknown": {}
+    }
+    # Track PR numbers for currently open PRs
+    current_open_prs = {
+        "internal": set(),
+        "external": set(),
+        "unknown": set()
     }
     current_date = datetime.now().date()
     
@@ -174,8 +181,11 @@ def process_pr_data(prs: List[Dict], contributors: Dict) -> Tuple[Dict, Dict[str
             # PR is open on this date if it's created and not yet closed
             if closed_date is None or date.date() < closed_date:
                 open_prs_by_date[contributor_type][date_str] += 1
+                # If PR is still open today, track its number
+                if closed_date is None:
+                    current_open_prs[contributor_type].add(pr['number'])
     
-    return contributors, open_prs_by_date
+    return contributors, open_prs_by_date, current_open_prs
 
 
 def get_contributors(
@@ -187,7 +197,7 @@ def get_contributors(
     github_token: str,
     since: Optional[datetime] = None,
     use_cache_only: bool = False
-) -> Tuple[Dict, Dict[str, Dict[str, int]]]:
+) -> Tuple[Dict, Dict[str, Dict[str, int]], Dict[str, Set[int]]]:
     """Fetch contributors and their monthly PR counts.
     
     Args:
@@ -204,6 +214,7 @@ def get_contributors(
         Tuple containing:
         - Dictionary of contributors and their PR counts
         - Dictionary mapping dates to number of open PRs by contributor type
+        - Dictionary mapping contributor types to sets of currently open PR numbers
     """
     github = GitHubAPI(github_token, use_cache=True, use_cache_only=use_cache_only)
     
@@ -230,9 +241,9 @@ def get_contributors(
     
     # Get and process PR data
     prs = fetch_pr_data(github, repo_owner, repo_name, since)
-    contributors, open_prs_by_date = process_pr_data(prs, contributors)
+    contributors, open_prs_by_date, current_open_prs = process_pr_data(prs, contributors)
     
-    return contributors, open_prs_by_date
+    return contributors, open_prs_by_date, current_open_prs
 
 
 def print_contributors(contributors: Dict, show_internal: bool = False, show_external: bool = True, show_unknown: bool = True) -> None:
@@ -348,7 +359,7 @@ if __name__ == "__main__":
     if since_date:
         since_date = datetime.strptime(since_date, "%Y-%m-%d")
         
-    contributors, open_prs_by_date = get_contributors(
+    contributors, open_prs_by_date, current_open_prs = get_contributors(
         repo_owner,
         repo_name,
         filter_orgs or [],
@@ -434,4 +445,10 @@ if __name__ == "__main__":
             "open_prs_by_date": filtered_open_prs
         }
         
+        # Save open external PRs to file
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        with open(os.path.join(OUTPUT_DIR, 'open-prs.txt'), 'w') as f:
+            for pr_number in current_open_prs["external"]:
+                f.write(f"https://github.com/{repo_owner}/{repo_name}/pull/{pr_number}\n")
+
         print(json.dumps(output_data, indent=4))
