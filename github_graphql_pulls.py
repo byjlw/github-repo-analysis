@@ -115,7 +115,9 @@ def fetch_pull_requests(
             baseRefName
             headRefName
             labels(first: 100) {
+              totalCount
               nodes {
+                id
                 name
                 color
                 description

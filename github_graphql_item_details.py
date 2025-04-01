@@ -32,8 +32,14 @@ def fetch_issue_details(api, repo_owner: str, repo_name: str, number: int) -> Op
             url
             avatarUrl
           }
+          issueType {
+            name
+            id
+          }
           labels(first: 100) {
+            totalCount
             nodes {
+              id
               name
               color
               description
@@ -118,7 +124,7 @@ def fetch_issue_details(api, repo_owner: str, repo_name: str, number: int) -> Op
         "number": number
     }
     
-    result = api.execute_query(query, variables)
+    result = api.execute_query(query, variables, use_issue_types=True)
     
     if not result.get("data") or not result.get("data").get("repository") or not result.get("data").get("repository").get("issue"):
         logging.warning(f"Failed to fetch issue {number}")
@@ -173,7 +179,8 @@ def fetch_issue_details(api, repo_owner: str, repo_name: str, number: int) -> Op
                 "assignee": {"login": item["assignee"]["login"]} if "__typename" in item and item["__typename"] in ["AssignedEvent", "UnassignedEvent"] and "assignee" in item else None
             }
             for item in issue_data["timelineItems"]["nodes"]
-        ]
+        ],
+        "issue_type": issue_data["issueType"]["name"] if issue_data.get("issueType") else None
     }
     
     return issue
@@ -212,7 +219,9 @@ def fetch_pull_request_details(api, repo_owner: str, repo_name: str, number: int
           baseRefName
           headRefName
           labels(first: 100) {
+            totalCount
             nodes {
+              id
               name
               color
               description

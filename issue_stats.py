@@ -1,5 +1,5 @@
 import pandas as pd
-from chart import plot_issue_trends
+from chart import plot_issue_trends, plot_issues_by_type
 import json
 import os
 import sys
@@ -96,8 +96,15 @@ if __name__ == "__main__":
     issues = fetch_issues(args.repo, args.token, use_cache_only=args.use_cache_only, fetch_limit=args.fetch_limit)
     if issues:
         df_issues = create_issues_df(issues)
-        # Generate both charts with date range
+        # Generate charts with date range
         plot_issue_trends(df_issues, start_date=start_date, end_date=end_date)
         plot_label_trends(df_issues, start_date=start_date, end_date=end_date)
+        
+        # Generate issue type chart if issue_type data is available
+        if any('issue_type' in issue for issue in issues):
+            logging.info("Generating issue type trends chart")
+            plot_issues_by_type(df_issues, start_date=start_date, end_date=end_date)
+        else:
+            logging.info("No issue type data available, skipping issue type trends chart")
     else:
         logging.info("No issues found in cache or API.")

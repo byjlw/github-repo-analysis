@@ -101,8 +101,14 @@ def fetch_issues(
               url
               avatarUrl
             }
+            issueType {
+              name
+              id
+            }
             labels(first: 100) {
+              totalCount
               nodes {
+                id
                 name
                 color
                 description
@@ -123,7 +129,7 @@ def fetch_issues(
     issues = []
     
     # Fetch issues with pagination
-    for page in api.fetch_paginated_data(query, variables, ["repository", "issues"]):
+    for page in api.fetch_paginated_data(query, variables, ["repository", "issues"], use_issue_types=True):
         # Filter out pull requests (GraphQL already does this by using the issues field)
         
         if include_details:
@@ -159,7 +165,8 @@ def fetch_issues(
                             "description": label["description"]
                         }
                         for label in issue["labels"]["nodes"]
-                    ]
+                    ],
+                    "issue_type": issue["issueType"]["name"] if issue.get("issueType") else None
                 }
                 for issue in page
             ]

@@ -2,10 +2,105 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import datetime
-from typing import Optional
+from typing import Optional, List
 
 from chart_utils import get_date_range, save_chart, MAX_LABELS
 from chart_base import count_open_issues, setup_chart, setup_dual_axis_chart
+
+def count_open_issues_by_type(df_issues: pd.DataFrame, date: datetime.date, issue_type: Optional[str] = None) -> int:
+    """Count open issues of a specific type on a given date.
+    
+    Args:
+        df_issues: DataFrame containing issue data
+        date: Date to count open issues for
+        issue_type: Optional issue type to filter by
+        
+    Returns:
+        Number of open issues of the specified type on the given date
+    """
+    # Filter issues that were created on or before the date
+    created_before = df_issues[pd.to_datetime(df_issues['created_at']).dt.date <= date]
+    
+    # Filter issues that were closed after the date or not closed at all
+    not_closed_before = created_before[
+        (pd.isna(created_before['closed_at'])) | 
+        (pd.to_datetime(created_before['closed_at']).dt.date > date)
+    ]
+    
+    # Filter by issue type if specified
+    if issue_type:
+        if issue_type == 'unknown':
+            # Handle issues with no type
+            return len(not_closed_before[pd.isna(not_closed_before['issue_type'])])
+        else:
+            # Filter by specific issue type
+            return len(not_closed_before[not_closed_before['issue_type'] == issue_type])
+    
+    # Return total count if no type specified
+    return len(not_closed_before)
+
+def plot_issues_by_type(df_issues: pd.DataFrame, output_filename: str = "issue_trends_by_type.png",
+                       start_date: Optional[datetime.date] = None, end_date: Optional[datetime.date] = None) -> None:
+    """Create a chart showing issue trends by type over time.
+    
+    Args:
+        df_issues: DataFrame containing issue data
+        output_filename: Name of the output file
+        start_date: Optional start date to constrain chart range
+        end_date: Optional end date to constrain chart range
+    """
+    if df_issues.empty:
+        print("No data to plot")
+        return
+
+    date_range = get_date_range(df_issues, start=start_date, end=end_date)
+    if len(date_range) == 0:
+        print("No data in selected date range")
+        return
+
+    fig, ax = setup_chart(figsize=(12, 8))
+    
+    # Get unique issue types
+    issue_types = df_issues['issue_type'].dropna().unique().tolist()
+    
+    # Add 'unknown' for issues with no type
+    if df_issues['issue_type'].isna().any():
+        issue_types.append('unknown')
+    
+    # Calculate max issues for each type
+    type_max_issues = {}
+    for issue_type in issue_types:
+        max_count = max([count_open_issues_by_type(df_issues, date.date(), issue_type) for date in date_range])
+        type_max_issues[issue_type] = max_count
+
+    # Calculate and plot trends for issue types
+    colors = plt.cm.rainbow(np.linspace(0, 1, len(issue_types)))
+    legend_data = []
+
+    for i, issue_type in enumerate(issue_types):
+        open_issues = [count_open_issues_by_type(df_issues, date.date(), issue_type) for date in date_range]
+        line = ax.plot(date_range, open_issues, color=colors[i], marker='o', markersize=2)[0]
+        type_name = issue_type if issue_type != 'unknown' else 'No Type'
+        legend_data.append((line, f"{type_name} ({open_issues[-1]})", open_issues[-1]))
+
+    # Sort and create legend
+    legend_data.sort(key=lambda x: x[2], reverse=True)
+    ncol = min(4, len(legend_data))
+    ax.legend(
+        [x[0] for x in legend_data],
+        [x[1] for x in legend_data],
+        loc='upper center',
+        bbox_to_anchor=(0.5, -0.15),
+        fontsize='small',
+        ncol=ncol
+    )
+
+    # Add title and labels
+    plt.title("Open Issues by Type Over Time")
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Number of Open Issues')
+
+    save_chart(output_filename)
 
 def plot_issues_by_label(df_issues: pd.DataFrame, labels: list, output_filename: str = "issue_trends_by_label.png",
                         start_date: Optional[datetime.date] = None, end_date: Optional[datetime.date] = None) -> None:

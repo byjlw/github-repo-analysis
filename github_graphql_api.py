@@ -33,12 +33,13 @@ class GitHubGraphQLAPI:
         self.use_cache_only = use_cache_only
         self.cache = GitHubCache() if use_cache else None
     
-    def execute_query(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+    def execute_query(self, query: str, variables: Dict[str, Any], use_issue_types: bool = False) -> Dict[str, Any]:
         """Execute a GraphQL query against the GitHub API.
         
         Args:
             query: GraphQL query string
             variables: Variables for the GraphQL query
+            use_issue_types: Whether to include the issue_types feature flag in the request
             
         Returns:
             Response data from the GraphQL API
@@ -52,7 +53,12 @@ class GitHubGraphQLAPI:
             "variables": variables
         }
         
-        response = requests.post(self.GRAPHQL_URL, json=payload, headers=self.headers)
+        # Create headers with optional issue_types feature flag
+        headers = self.headers.copy()
+        if use_issue_types:
+            headers['GraphQL-Features'] = 'issue_types'
+        
+        response = requests.post(self.GRAPHQL_URL, json=payload, headers=headers)
         
         if response.status_code != 200:
             logging.error(f"GraphQL request failed: {response.status_code} - {response.text}")
@@ -144,13 +150,14 @@ class GitHubGraphQLAPI:
             "watchers_count": repo_data["watchers"]["totalCount"]
         }
     
-    def fetch_paginated_data(self, query: str, variables: Dict[str, Any], extract_path: List[str]) -> Generator[List[Dict], None, None]:
+    def fetch_paginated_data(self, query: str, variables: Dict[str, Any], extract_path: List[str], use_issue_types: bool = False) -> Generator[List[Dict], None, None]:
         """Fetch paginated data from the GraphQL API.
         
         Args:
             query: GraphQL query string with pagination
             variables: Variables for the GraphQL query
             extract_path: Path to the nodes in the response (e.g., ["repository", "issues"])
+            use_issue_types: Whether to include the issue_types feature flag in the request
             
         Yields:
             List of items from each page
@@ -163,7 +170,7 @@ class GitHubGraphQLAPI:
             if cursor:
                 variables["cursor"] = cursor
                 
-            result = self.execute_query(query, variables)
+            result = self.execute_query(query, variables, use_issue_types=use_issue_types)
             
             if not result.get("data"):
                 logging.error("Failed to fetch paginated data")
