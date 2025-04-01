@@ -175,7 +175,7 @@ This will analyze issues from the pytorch/pytorch repository. The fetch-limit co
 
 #### Output
 
-The script generates two charts in the output directory:
+The script generates three charts in the output directory:
 
 1. **Overall Issue Trends** (issue_trends.png):
    - Number of open issues over time (red line)
@@ -194,7 +194,16 @@ The script generates two charts in the output directory:
 
    ![Issues by Label](docs/issue_trends_by_label.png)
 
-Both charts provide complementary views of the repository's issue activity - one showing overall trends and the other breaking down issues by their labels.
+3. **Issues by Type** (issue_trends_by_type.png):
+   - Shows trends for different issue types (Bug, Feature, Task, etc.)
+   - Includes a line for issues with no type
+   - Each line represents a different issue type
+   - Legend shows current count for each type
+   - Types sorted by current count for easy reference
+   - Can be filtered by date range using --start-date and --end-date
+   - Only generated when issue type data is available (requires GraphQL API)
+
+These charts provide complementary views of the repository's issue activity - one showing overall trends, another breaking down issues by their labels, and a third categorizing issues by their official types.
 
 ## Core Components
 

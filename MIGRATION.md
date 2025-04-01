@@ -29,6 +29,33 @@ The migration to GraphQL provides several benefits:
 2. **More efficient data fetching**: With GraphQL, you can specify exactly what data you need, reducing the amount of data transferred.
 3. **Better rate limit handling**: GraphQL has a different rate limiting system that is based on query complexity rather than the number of requests.
 4. **More flexible queries**: GraphQL allows for more complex queries that can fetch related data in a single request.
+5. **Access to new features**: GraphQL provides access to features not available in the REST API, such as issue types.
+
+## Issue Type Support
+
+One of the key enhancements in this migration is the addition of issue type support. GitHub's issue types (Bug, Feature, Task, etc.) are only available through the GraphQL API with a special feature flag.
+
+### Implementation
+
+1. **GraphQL Feature Flag**: The GraphQL API client now supports the `GraphQL-Features: issue_types` header for queries that need to access issue types.
+
+2. **Issue Type Queries**: The GraphQL queries for issues have been updated to include the `issueType` field:
+
+```graphql
+issueType {
+  name
+  id
+}
+```
+
+3. **Visualization**: A new chart function `plot_issues_by_type` has been added to visualize issue trends by type:
+   - Shows trends for different issue types (Bug, Feature, Task, etc.)
+   - Includes a line for issues with no type
+   - Each line represents a different issue type
+   - Legend shows current count for each type
+   - Types sorted by current count for easy reference
+
+4. **Conditional Generation**: The issue type chart is only generated when issue type data is available, ensuring backward compatibility with repositories that don't use issue types.
 
 ## Implementation Details
 
