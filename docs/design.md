@@ -4,7 +4,7 @@ This document explains how the github-repo-analysis system works internally and 
 
 ## System Architecture
 
-The system is built around a central GitHub API client with specialized analysis modules that process and visualize specific aspects of repository data:
+The system is built around a central GitHub API client with specialized analysis modules that process and visualize specific aspects of repository data. The system now supports both REST and GraphQL APIs with a compatibility layer to maintain backward compatibility:
 
 ```
                                     ┌─────────────────┐
@@ -19,15 +19,50 @@ The system is built around a central GitHub API client with specialized analysis
                                     │                 │
                                     └────────┬────────┘
                                             │
+                                    ┌────────┴────────┐
+                                    │                 │
+                                    │github_api_compat.py│
+                                    │                 │
+                                    └────────┬────────┘
+                                            │
                     ┌───────────────────────┼───────────────────────┐
                     │                       │                       │
             ┌───────┴───────┐      ┌───────┴───────┐      ┌───────┴───────┐
             │               │      │               │      │               │
-            │ issue_stats.py│      │github_cache.py│      │external_contributors.py│
+            │github_api_rest.py│   │github_graphql_api.py│ │github_cache.py│
             │               │      │               │      │               │
-            └───────┬───────┘      └───────────────┘      └───────┬───────┘
-                    │                                             │
-                    └──────────────────────┬──────────────────────┘
+            └───────────────┘      └───────┬───────┘      └───────────────┘
+                                          │
+                    ┌───────────────────────────────────────────────┐
+                    │                     │                         │
+            ┌───────┴───────┐    ┌───────┴───────┐         ┌───────┴───────┐
+            │               │    │               │         │               │
+            │github_graphql_utils.py│github_graphql_issues.py│github_graphql_pulls.py│
+            │               │    │               │         │               │
+            └───────────────┘    └───────────────┘         └───────────────┘
+                                                           │
+                                                   ┌───────┴───────┐
+                                                   │               │
+                                                   │github_graphql_contributors.py│
+                                                   │               │
+                                                   └───────┬───────┘
+                                                          │
+                                                   ┌──────┴──────┐
+                                                   │             │
+                                                   │github_graphql_item_details.py│
+                                                   │             │
+                                                   └─────────────┘
+
+
+                    ┌───────────────────────┬───────────────────────┐
+                    │                       │                       │
+            ┌───────┴───────┐      ┌───────┴───────┐      ┌───────┴───────┐
+            │               │      │               │      │               │
+            │ issue_stats.py│      │external_contributors.py│test_graphql_api.py│
+            │               │      │               │      │               │
+            └───────┬───────┘      └───────┬───────┘      └───────────────┘
+                    │                      │
+                    └─────────────────────┬┴──────────────────────┐
                                           │
                                    ┌──────┴──────┐
                                    │             │
@@ -52,15 +87,48 @@ The system is built around a central GitHub API client with specialized analysis
 
 ## Component Details
 
-### GitHub API Client (github_api.py)
+### GitHub API Architecture
 
-The API client manages all communication with GitHub's REST API:
-- Handles authentication and request headers
-- Implements automatic pagination for all API endpoints
+The system now supports both REST and GraphQL APIs with a compatibility layer to maintain backward compatibility:
+
+#### GitHub API Entry Point (github_api.py)
+- Acts as the main entry point for all GitHub API interactions
+- Imports from the compatibility layer to maintain backward compatibility
+- Provides the same interface as the original REST API client
+
+#### Compatibility Layer (github_api_compat.py)
+- Implements the same interface as the original REST API client
+- Delegates to the appropriate API implementation (REST or GraphQL)
+- Ensures backward compatibility with existing code
+
+#### REST API Client (github_api_rest.py)
+- The original REST API client (renamed from github_api.py)
+- Handles authentication and request headers for REST API
+- Implements automatic pagination for all REST API endpoints
 - Manages rate limiting with exponential backoff retry logic
 - Normalizes response data into consistent formats
 - Integrates with the caching system for all requests
 - Provides high-level methods for fetching issues, PRs, and user data
+
+#### GraphQL API Client (github_graphql_api.py)
+- Manages all communication with GitHub's GraphQL API
+- Handles authentication and request headers for GraphQL API
+- Implements cursor-based pagination for GraphQL queries
+- Supports special feature flags like issue types
+- Provides a centralized interface for all GraphQL operations
+- Integrates with the caching system for all requests
+
+#### GraphQL Utility Functions (github_graphql_utils.py)
+- Provides utility functions for GraphQL operations
+- Handles data extraction from nested GraphQL responses
+- Maps GraphQL types to REST API equivalents
+- Implements helper functions for common operations
+
+#### GraphQL Specialized Modules
+- **github_graphql_issues.py**: Handles issue-related GraphQL queries
+- **github_graphql_pulls.py**: Manages pull request-related GraphQL queries
+- **github_graphql_contributors.py**: Handles contributor-related GraphQL queries
+- **github_graphql_item_details.py**: Provides shared functionality for fetching detailed information about issues and PRs
 
 ### Caching System (github_cache.py)
 
@@ -119,7 +187,10 @@ The visualization system is modularized into several components:
 - Specializes in issue-related visualizations
 - Implements issue trend charts
 - Creates label-based issue analysis charts
+- Provides issue type trend visualization
+- Implements helper functions for counting issues by type
 - Handles issue-specific data processing
+- Supports conditional chart generation based on data availability
 
 #### chart_contributors.py
 - Focuses on contributor-related visualizations
@@ -133,6 +204,8 @@ The visualization system is modularized into several components:
 
 1. Data Collection:
    - API client fetches issues with full details
+   - GraphQL API includes issue type information when available
+   - Special GraphQL feature flag is used to access issue types
    - Response data is cached for future use
    - Issue data is normalized into consistent format
 
@@ -140,11 +213,15 @@ The visualization system is modularized into several components:
    - Raw data is converted to time series format
    - Issue states are tracked over time
    - Labels are processed for categorization
+   - Issue types are extracted and processed
    - Statistics are calculated for each time period
 
 3. Visualization:
    - Data is filtered to requested date range
-   - Charts are generated with standard formatting
+   - Standard issue trend charts are generated
+   - Label-based issue charts are created
+   - Issue type charts are conditionally generated when type data is available
+   - Charts are formatted with consistent styling
    - Output files are created in specified directory
 
 ### Contributor Analysis Pipeline
