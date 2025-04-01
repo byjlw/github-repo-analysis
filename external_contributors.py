@@ -237,7 +237,7 @@ def get_contributors(
         }
     
     if not contributors:
-        return {}, {"internal": {}, "external": {}}
+        return {}, {"internal": {}, "external": {}, "unknown": {}}, {"internal": set(), "external": set(), "unknown": set()}
     
     # Get and process PR data
     prs = fetch_pr_data(github, repo_owner, repo_name, since)

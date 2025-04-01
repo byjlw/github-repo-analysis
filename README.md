@@ -243,3 +243,13 @@ The caching system supports three modes:
 #### Cache Location
 
 Cache files are stored in the `.cache` directory, with filenames based on the endpoint and parameters to ensure uniqueness.
+
+## Testing
+
+To test the GraphQL API implementation, you can use the `test_graphql_api.py` script:
+
+```bash
+python test_graphql_api.py --repo <owner/name> --org <organization> --token <github_token>
+```
+
+This script tests the basic functionality of the GitHub GraphQL API implementation by fetching issues, pull requests, contributors, and organization members for a repository.
